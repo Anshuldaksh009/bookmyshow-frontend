@@ -1,13 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login'; 
-import Home from './pages/Home'; 
-import Shows from './pages/Show';
-import Admin from './pages/Admin';
-import SeatSelect from './pages/SeatSelect';
-import Signup from './pages/Signup';
-import MyBookings from './pages/MyBookings';
+// If your files have .jsx extensions, make sure the path matches exact filename casing:
+import Login from './pages/Login.jsx';
+import Home from './pages/Home.jsx';
+import Shows from './pages/Show.jsx';
+import Admin from './pages/Admin.jsx';
+import SeatSelect from './pages/SeatSelect.jsx';
+import Signup from './pages/Signup.jsx';
+import MyBookings from './pages/MyBookings.jsx';
 
 function App() {
   return (
