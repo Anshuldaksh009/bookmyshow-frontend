@@ -1,7 +1,9 @@
 import axios from 'axios';
+// src/api/axiosClient.js
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000/listing';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000/listing',
+  baseURL: BASE_URL, // Should be https://your-backend.onrender.com/listing
   headers: {
     'Content-Type': 'application/json',
   },
