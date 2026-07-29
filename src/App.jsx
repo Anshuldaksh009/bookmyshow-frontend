@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-// If your files have .jsx extensions, make sure the path matches exact filename casing:
+
+// 🎯 Matched exact casing from your GitHub repository:
 import Login from './pages/login.jsx';
 import Home from './pages/home.jsx';
 import Shows from './pages/show.jsx';
@@ -14,14 +15,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* 🌍 1. PUBLIC ROUTES (Unprotected browsing for guests and logged-in users) */}
+        {/* 🌍 1. PUBLIC ROUTES */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/shows/:movieId" element={<Shows />} />
         <Route path="/book-seats/:showId" element={<SeatSelect />} />
 
-        {/* 🔒 2. PROTECTED USER ROUTES (Login required) */}
+        {/* 🔒 2. PROTECTED USER ROUTES */}
         <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
           <Route path="/my-bookings" element={<MyBookings />} />
         </Route>
