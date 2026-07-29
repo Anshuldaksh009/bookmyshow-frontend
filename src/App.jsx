@@ -2,9 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 // If your files have .jsx extensions, make sure the path matches exact filename casing:
-import Login from './pages/Login.jsx';
-import Home from './pages/Home.jsx';
-import Shows from './pages/Show.jsx';
+import Login from './pages/login.jsx';
+import Home from './pages/home.jsx';
+import Shows from './pages/show.jsx';
 import Admin from './pages/Admin.jsx';
 import SeatSelect from './pages/SeatSelect.jsx';
 import Signup from './pages/Signup.jsx';
