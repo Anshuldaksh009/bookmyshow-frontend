@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // 👈 You are likely missing this line!
 // 🎯 Matched exact casing from your GitHub repository:
 import Login from './pages/login.jsx';
 import Home from './pages/home.jsx';

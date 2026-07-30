@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 
 const AddShowForm = ({ movies, theaters, setMessage }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  // 🎯 FIX: Get LOCAL date string (YYYY-MM-DD) so it doesn't fall behind in IST mornings
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const localTodayStr = getLocalDateString();
 
   const [showForm, setShowForm] = useState({
     name: '',
@@ -11,19 +20,24 @@ const AddShowForm = ({ movies, theaters, setMessage }) => {
     time: '01:30 PM (Matinee)',
     ticketPrice: 200,
     totalSeats: 80,
-    date: todayStr,
-    endDate: todayStr // Enforced in frontend for all new shows
+    date: localTodayStr,
+    endDate: localTodayStr // 👈 Now this will correctly default to July 30!
   });
+
+  const [loading, setLoading] = useState(false);
 
   const handleAddShow = async (e) => {
     e.preventDefault();
     setMessage({ type: '', text: '' });
+    setLoading(true);
 
     if (Number(showForm.ticketPrice) < 10) {
+      setLoading(false);
       return setMessage({ type: 'danger', text: 'Ticket price must be at least ₹10.' });
     }
 
     if (new Date(showForm.endDate) < new Date(showForm.date)) {
+      setLoading(false);
       return setMessage({ type: 'danger', text: 'End date cannot be earlier than start date.' });
     }
 
@@ -37,6 +51,7 @@ const AddShowForm = ({ movies, theaters, setMessage }) => {
         totalSeats: showForm.totalSeats || selectedTheaterObj?.totalSeats || 80
       };
 
+      // Ensure this endpoint matches your backend setup!
       const res = await axiosClient.post('/shows/add-show', payload);
 
       if (res.data?.success) {
@@ -48,14 +63,16 @@ const AddShowForm = ({ movies, theaters, setMessage }) => {
           time: '01:30 PM (Matinee)',
           ticketPrice: 200,
           totalSeats: 80,
-          date: todayStr,
-          endDate: todayStr
+          date: localTodayStr,
+          endDate: localTodayStr
         });
       } else {
         setMessage({ type: 'danger', text: res.data?.message || 'Failed to schedule show.' });
       }
     } catch (err) {
       setMessage({ type: 'danger', text: err.response?.data?.message || 'Error scheduling show.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -138,7 +155,7 @@ const AddShowForm = ({ movies, theaters, setMessage }) => {
               type="date"
               className="form-control"
               required
-              min={todayStr}
+              min={localTodayStr}
               value={showForm.date}
               onChange={(e) => setShowForm({ ...showForm, date: e.target.value })}
             />
@@ -150,15 +167,15 @@ const AddShowForm = ({ movies, theaters, setMessage }) => {
               type="date"
               className="form-control"
               required
-              min={showForm.date || todayStr}
+              min={showForm.date || localTodayStr}
               value={showForm.endDate}
               onChange={(e) => setShowForm({ ...showForm, endDate: e.target.value })}
             />
           </div>
 
           <div className="col-12 mt-3">
-            <button type="submit" className="btn btn-danger fw-bold px-4">
-              Create Showtime Slot
+            <button type="submit" className="btn btn-danger fw-bold px-4" disabled={loading}>
+              {loading ? 'Creating Shows...' : 'Create Showtime Slot'}
             </button>
           </div>
         </div>

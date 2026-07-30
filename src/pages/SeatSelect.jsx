@@ -12,16 +12,15 @@ const SeatSelect = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedSeats, setSelectedSeats] = useState([]);
-
-  // Payment Modal States
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Payment Processing State (for button spinner)
   const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   useEffect(() => {
     fetchShowDetails();
   }, [showId]);
 
-  // 1. Fetch Show Details (Including Booked Seats from Mongo)
+  // 1. Fetch Show Details
   const fetchShowDetails = async () => {
     try {
       setLoading(true);
@@ -40,7 +39,7 @@ const SeatSelect = () => {
     }
   };
 
-  // 2. Local Seat Selection Toggle Handler
+  // 2. Seat Selection Logic
   const handleSeatClick = (seatId) => {
     if (show?.bookedSeats?.includes(seatId)) return;
 
@@ -56,50 +55,96 @@ const SeatSelect = () => {
   };
 
   const totalAmount = selectedSeats.length * (show?.ticketPrice || 0);
-// 3. Trigger Payment Modal or Redirect to Login if guest user
-const handleProceedToPay = () => {
-  const token = localStorage.getItem('token');
-  
-  // Check if user is logged in
-  if (!token) {
-    alert('Please log in to complete your ticket booking.');
+
+  // 3. 🚀 TRIGGER RAZORPAY PAYMENT
+  const handleProceedToPay = async () => {
+    const token = localStorage.getItem('token'); // 👈 Grab token once
     
-    // 👈 This line executes as soon as the user clicks "OK" on the alert
-    navigate('/login', { state: { from: location } });
-    return;
-  }
+    // Check login status first
+    if (!token) {
+      alert('Please log in to complete your ticket booking.');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
 
-  setShowPaymentModal(true);
-};
-
-  // 4. Confirm Payment & Complete Booking Request
-  const handleConfirmPayment = async () => {
     if (selectedSeats.length === 0) return;
 
     try {
-      setPaymentProcessing(true);
+      setPaymentProcessing(true); // Start loading spinner on button
 
-      const payload = {
-        showId: show._id,
-        seats: selectedSeats,
-        totalAmount,
-        transactionId: `PAY_${Math.floor(100000 + Math.random() * 900000)}`,
+      // A. Ask backend to create a Razorpay Order
+      const orderRes = await axiosClient.post('/payment/create-order', { 
+        amount: totalAmount 
+      }, {
+        headers: { Authorization: `Bearer ${token}` } // 👈 Attach it!
+      });
+      
+      const order = orderRes.data.order;
+
+      // B. Configure Razorpay Popup options
+      const options = {
+        key: "rzp_test_TJnwV25cPc1p9m", // 👈 Added quotes so JavaScript doesn't crash!
+        amount: order.amount,
+        currency: "INR",
+        name: "BookMyShow Clone",
+        description: `Booking for ${show.movie?.title}`,
+        order_id: order.id, 
+        theme: {
+          color: "#F84464" // BookMyShow Red
+        },
+        // C. What happens on successful payment:
+        handler: async function (response) {
+          const transactionId = response.razorpay_payment_id;
+          
+          try {
+            // Hit our secure booking endpoint (with Redis lock!)
+            const payload = {
+              showId: show._id,
+              seats: selectedSeats,
+              totalAmount,
+              transactionId: transactionId,
+            };
+
+            // 👇 Attached the token header here too!
+            const bookingRes = await axiosClient.post('/booking/make-booking', payload, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (bookingRes.data?.success) {
+              alert("Payment Successful & Ticket Booked! 🍿");
+              setSelectedSeats([]);
+              navigate('/my-bookings');
+            } else {
+              alert(bookingRes.data?.message || 'Booking failed.');
+            }
+          } catch (bookingError) {
+            console.error('Booking Error:', bookingError);
+            alert(bookingError.response?.data?.message || "Booking failed. Seats might have been taken!");
+          } finally {
+            setPaymentProcessing(false); // Stop loading spinner
+          }
+        },
+        // What happens if user closes the modal without paying
+        modal: {
+          ondismiss: function() {
+            setPaymentProcessing(false);
+          }
+        }
       };
 
-      const res = await axiosClient.post('/bookings/make-booking', payload);
+      // D. Open the Razorpay Popup
+      const rzp = new window.Razorpay(options);
+      
+      rzp.on('payment.failed', function (response){
+        alert("Payment Failed! Reason: " + response.error.description);
+        setPaymentProcessing(false);
+      });
 
-      if (res.data?.success) {
-        setSelectedSeats([]);
-        await fetchShowDetails();
-        setShowPaymentModal(false);
-        navigate('/my-bookings');
-      } else {
-        alert(res.data?.message || 'Booking failed.');
-      }
+      rzp.open();
+
     } catch (err) {
       console.error('Payment Error:', err);
-      alert(err.response?.data?.message || 'Payment failed. Please try again.');
-    } finally {
+      alert(err.response?.data?.message || 'Could not start payment process.');
       setPaymentProcessing(false);
     }
   };
@@ -175,24 +220,15 @@ const handleProceedToPay = () => {
           {/* 🏷️ LEGEND BAR */}
           <div className="d-flex justify-content-center gap-4 mb-4 flex-wrap">
             <div className="d-flex align-items-center gap-2">
-              <div
-                className="border rounded bg-white"
-                style={{ width: '22px', height: '22px' }}
-              ></div>
+              <div className="border rounded bg-white" style={{ width: '22px', height: '22px' }}></div>
               <span className="small text-muted fw-semibold">Available</span>
             </div>
             <div className="d-flex align-items-center gap-2">
-              <div
-                className="rounded bg-success"
-                style={{ width: '22px', height: '22px' }}
-              ></div>
+              <div className="rounded bg-success" style={{ width: '22px', height: '22px' }}></div>
               <span className="small text-muted fw-semibold">Selected</span>
             </div>
             <div className="d-flex align-items-center gap-2">
-              <div
-                className="rounded bg-secondary opacity-50"
-                style={{ width: '22px', height: '22px' }}
-              ></div>
+              <div className="rounded bg-secondary opacity-50" style={{ width: '22px', height: '22px' }}></div>
               <span className="small text-muted fw-semibold">Sold Out</span>
             </div>
           </div>
@@ -256,83 +292,17 @@ const handleProceedToPay = () => {
               <button
                 className="btn btn-danger btn-lg px-4 fw-bold shadow-sm"
                 onClick={handleProceedToPay}
+                disabled={paymentProcessing}
               >
-                Pay ₹{totalAmount}
+                {paymentProcessing ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Processing...
+                  </>
+                ) : (
+                  `Pay ₹${totalAmount}`
+                )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 💳 DUMMY PAYMENT MODAL */}
-      {showPaymentModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow-lg">
-              <div className="modal-header bg-dark text-white">
-                <h5 className="modal-title fw-bold">💳 Payment Checkout</h5>
-                <button
-                  type="button"
-                  className="btn-close btn-close-white"
-                  onClick={() => setShowPaymentModal(false)}
-                ></button>
-              </div>
-
-              <div className="modal-body p-4 text-start">
-                <div className="bg-light p-3 rounded mb-3 border">
-                  <div><strong>Movie:</strong> {show.movie?.title}</div>
-                  <div><strong>Theater:</strong> {show.theater?.name} ({show.theater?.city})</div>
-                  <div><strong>Show Time:</strong> {show.time}</div>
-                  <div><strong>Seats:</strong> {selectedSeats.join(', ')} ({selectedSeats.length} seats)</div>
-                  <div className="fs-5 fw-bold text-danger mt-2">Total Amount: ₹{totalAmount}</div>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">Card Number</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="4111 2222 3333 4444"
-                    defaultValue="4111222233334444"
-                  />
-                </div>
-
-                <div className="row g-2">
-                  <div className="col-6">
-                    <label className="form-label small fw-bold">Expiry</label>
-                    <input type="text" className="form-control" defaultValue="12/28" />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small fw-bold">CVV</label>
-                    <input type="password" className="form-control" defaultValue="123" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer bg-light">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowPaymentModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger fw-bold px-4"
-                  disabled={paymentProcessing}
-                  onClick={handleConfirmPayment}
-                >
-                  {paymentProcessing ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Processing...
-                    </>
-                  ) : (
-                    `Confirm & Pay ₹${totalAmount}`
-                  )}
-                </button>
-              </div>
             </div>
           </div>
         </div>

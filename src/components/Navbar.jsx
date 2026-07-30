@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  
+  // 1. 🎯 Add State to track if the mobile menu is open
+  const [isOpen, setIsOpen] = useState(false);
 
-  // 1. Read token, userRole, and user object directly from localStorage
+  // Read token, userRole, and user object directly from localStorage
   const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // 👈 Captures 'admin' from your storage
+  const userRole = localStorage.getItem('userRole'); 
   
   let user = {};
   try {
@@ -15,17 +18,21 @@ const Navbar = () => {
     console.error('Error parsing user object:', err);
   }
 
-  // 2. Check if user is Admin
+  // Check if user is Admin
   const isAdmin = 
     userRole === 'admin' || 
     userRole === 'Admin' || 
     user?.role === 'admin' || 
     user?.isAdmin === true;
 
+  // 🎯 Helper function to close menu after clicking a link
+  const closeMenu = () => setIsOpen(false);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
+    closeMenu(); // Close menu on logout
     navigate('/login');
   };
 
@@ -33,24 +40,25 @@ const Navbar = () => {
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark px-4 py-2 shadow-sm">
       <div className="container-fluid">
         {/* BRAND LOGO */}
-        <Link className="navbar-brand d-flex align-items-center gap-2 fw-bold text-danger fs-4" to="/">
+        <Link className="navbar-brand d-flex align-items-center gap-2 fw-bold text-danger fs-4" to="/" onClick={closeMenu}>
           <i className="bi bi-film"></i> BookMyShow
         </Link>
 
+        {/* 2. 🎯 Toggler Button now uses React onClick instead of Bootstrap JS */}
         <button
           className="navbar-toggler"
           type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarContent"
+          onClick={() => setIsOpen(!isOpen)}
         >
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        <div className="collapse navbar-collapse" id="navbarContent">
+        {/* 3. 🎯 Dynamically add the 'show' class if isOpen is true */}
+        <div className={`collapse navbar-collapse ${isOpen ? 'show' : ''}`} id="navbarContent">
           {/* LEFT NAV LINKS */}
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 align-items-lg-center gap-2">
             <li className="nav-item">
-              <Link className="nav-link fw-semibold text-white" to="/">
+              <Link className="nav-link fw-semibold text-white" to="/" onClick={closeMenu}>
                 Home
               </Link>
             </li>
@@ -58,7 +66,7 @@ const Navbar = () => {
             {/* 🎟️ MY BOOKINGS LINK */}
             {token && (
               <li className="nav-item">
-                <Link className="nav-link fw-semibold text-white" to="/my-bookings">
+                <Link className="nav-link fw-semibold text-white" to="/my-bookings" onClick={closeMenu}>
                   🎟️ My Bookings
                 </Link>
               </li>
@@ -67,7 +75,7 @@ const Navbar = () => {
             {/* 🛡️ ADMIN PANEL LINK */}
             {token && isAdmin && (
               <li className="nav-item">
-                <Link className="nav-link fw-semibold text-warning" to="/admin">
+                <Link className="nav-link fw-semibold text-warning" to="/admin" onClick={closeMenu}>
                   🛡️ Admin Panel
                 </Link>
               </li>
@@ -75,7 +83,7 @@ const Navbar = () => {
           </ul>
 
           {/* RIGHT ACCOUNT / LOGOUT BAR */}
-          <div className="d-flex align-items-center gap-3 ms-auto">
+          <div className="d-flex align-items-center gap-3 ms-auto mt-3 mt-lg-0">
             {token ? (
               <>
                 <span className="text-light small">
@@ -94,10 +102,10 @@ const Navbar = () => {
               </>
             ) : (
               <>
-                <Link to="/login" className="btn btn-outline-light btn-sm fw-semibold px-3">
+                <Link to="/login" className="btn btn-outline-light btn-sm fw-semibold px-3" onClick={closeMenu}>
                   Login
                 </Link>
-                <Link to="/signup" className="btn btn-danger btn-sm fw-bold px-3">
+                <Link to="/signup" className="btn btn-danger btn-sm fw-bold px-3" onClick={closeMenu}>
                   Sign Up
                 </Link>
               </>

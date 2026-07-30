@@ -32,8 +32,8 @@ const Home = () => {
         setLoading(true);
         setError('');
 
-        const response = await axiosClient.get(`/movies/get-all?city=${selectedCity}`);
-        
+// ✅ CORRECT: Starts with a single /movies
+const response = await axiosClient.get(`/movies/get-all?city=${selectedCity}`);        
         let movieData = [];
         if (response.data?.success && Array.isArray(response.data.data)) {
           movieData = response.data.data;

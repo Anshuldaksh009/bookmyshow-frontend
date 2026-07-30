@@ -24,7 +24,9 @@ const Show = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchMovieAndShows();
+    if (movieId) {
+      fetchMovieAndShows();
+    }
   }, [movieId, selectedCity, selectedDate]);
 
   const fetchMovieAndShows = async () => {
@@ -32,15 +34,19 @@ const Show = () => {
       setLoading(true);
       setError('');
 
+      // 1. Fetch Movie Details
       try {
         const movieRes = await axiosClient.get(`/movies/get-movie-by-id/${movieId}`);
         if (movieRes.data?.data) {
           setMovie(movieRes.data.data);
+        } else if (movieRes.data?.movie) {
+          setMovie(movieRes.data.movie);
         }
       } catch (err) {
-        console.warn('Movie fetch error:', err);
+        console.warn('Movie details fetch fallback notice:', err);
       }
 
+      // 2. Fetch Shows by City, Movie, and Selected Date
       const showsRes = await axiosClient.get(
         `/shows/get-shows-by-city-and-movie?movie=${movieId}&city=${encodeURIComponent(
           selectedCity
@@ -48,16 +54,20 @@ const Show = () => {
       );
 
       if (showsRes.data?.success) {
-        setShows(showsRes.data.data);
-        if (showsRes.data.data.length > 0 && showsRes.data.data[0].movie) {
-          setMovie(showsRes.data.data[0].movie);
+        const fetchedShows = showsRes.data.data || [];
+        setShows(fetchedShows);
+
+        // Fallback movie details from shows if movie endpoint failed
+        if (!movie && fetchedShows.length > 0 && fetchedShows[0].movie) {
+          setMovie(fetchedShows[0].movie);
         }
       } else {
         setShows([]);
       }
     } catch (err) {
       console.error('Error fetching shows:', err);
-      setError('Failed to load showtimes.');
+      setError('Failed to load showtimes for the selected date.');
+      setShows([]);
     } finally {
       setLoading(false);
     }
