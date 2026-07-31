@@ -55,12 +55,10 @@ const SeatSelect = () => {
   };
 
   const totalAmount = selectedSeats.length * (show?.ticketPrice || 0);
-
-  // 3. 🚀 TRIGGER RAZORPAY PAYMENT
+// 3. 🚀 TRIGGER RAZORPAY PAYMENT
   const handleProceedToPay = async () => {
-    const token = localStorage.getItem('token'); // 👈 Grab token once
+    const token = localStorage.getItem('token'); 
     
-    // Check login status first
     if (!token) {
       alert('Please log in to complete your ticket booking.');
       navigate('/login', { state: { from: location } });
@@ -70,34 +68,35 @@ const SeatSelect = () => {
     if (selectedSeats.length === 0) return;
 
     try {
-      setPaymentProcessing(true); // Start loading spinner on button
+      setPaymentProcessing(true); 
 
-      // A. Ask backend to create a Razorpay Order
+      // A. Ask backend to create a Razorpay Order & Lock Seats in Redis
       const orderRes = await axiosClient.post('/payment/create-order', { 
-        amount: totalAmount 
+        amount: totalAmount,
+        showId: show._id,     // 👈 FIXED: changed 'id' to 'show._id'
+        seats: selectedSeats
       }, {
-        headers: { Authorization: `Bearer ${token}` } // 👈 Attach it!
+        headers: { Authorization: `Bearer ${token}` } 
       });
       
       const order = orderRes.data.order;
 
       // B. Configure Razorpay Popup options
       const options = {
-        key: "rzp_test_TJnwV25cPc1p9m", // 👈 Added quotes so JavaScript doesn't crash!
+        key: "rzp_test_TJnwV25cPc1p9m", 
         amount: order.amount,
         currency: "INR",
         name: "BookMyShow Clone",
         description: `Booking for ${show.movie?.title}`,
         order_id: order.id, 
         theme: {
-          color: "#F84464" // BookMyShow Red
+          color: "#F84464" 
         },
         // C. What happens on successful payment:
         handler: async function (response) {
           const transactionId = response.razorpay_payment_id;
           
           try {
-            // Hit our secure booking endpoint (with Redis lock!)
             const payload = {
               showId: show._id,
               seats: selectedSeats,
@@ -105,7 +104,6 @@ const SeatSelect = () => {
               transactionId: transactionId,
             };
 
-            // 👇 Attached the token header here too!
             const bookingRes = await axiosClient.post('/booking/make-booking', payload, {
               headers: { Authorization: `Bearer ${token}` }
             });
@@ -121,18 +119,31 @@ const SeatSelect = () => {
             console.error('Booking Error:', bookingError);
             alert(bookingError.response?.data?.message || "Booking failed. Seats might have been taken!");
           } finally {
-            setPaymentProcessing(false); // Stop loading spinner
+            setPaymentProcessing(false); 
           }
         },
-        // What happens if user closes the modal without paying
+        
+        // D. 👈 FIXED: Release Redis locks if user closes the modal without paying!
         modal: {
-          ondismiss: function() {
-            setPaymentProcessing(false);
+          ondismiss: async function() {
+            try {
+              await axiosClient.post('/payment/cancel-lock', {
+                showId: show._id,
+                seats: selectedSeats
+              }, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              console.log("Released seat locks because payment was cancelled.");
+            } catch (err) {
+              console.error("Failed to release locks", err);
+            } finally {
+              setPaymentProcessing(false);
+            }
           }
         }
       };
 
-      // D. Open the Razorpay Popup
+      // E. Open the Razorpay Popup
       const rzp = new window.Razorpay(options);
       
       rzp.on('payment.failed', function (response){
@@ -144,11 +155,11 @@ const SeatSelect = () => {
 
     } catch (err) {
       console.error('Payment Error:', err);
+      // If Redis rejects the lock, show the error message from the backend!
       alert(err.response?.data?.message || 'Could not start payment process.');
       setPaymentProcessing(false);
     }
   };
-
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const seatsPerRow = 10;
 
