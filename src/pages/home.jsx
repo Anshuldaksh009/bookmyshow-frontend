@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Slider from 'react-slick';
+// to avoid crash 
+const SafeSlider = Slider.default || Slider;
 import axiosClient from '../api/axiosClient';
 import Navbar from '../components/Navbar';
 
@@ -32,8 +34,8 @@ const Home = () => {
         setLoading(true);
         setError('');
 
-// ✅ CORRECT: Starts with a single /movies
-const response = await axiosClient.get(`/movies/get-all?city=${selectedCity}`);        
+        // ✅ CORRECT: Starts with a single /movies
+        const response = await axiosClient.get(`/movies/get-all?city=${selectedCity}`);        
         let movieData = [];
         if (response.data?.success && Array.isArray(response.data.data)) {
           movieData = response.data.data;
@@ -169,13 +171,13 @@ const response = await axiosClient.get(`/movies/get-all?city=${selectedCity}`);
             <h3 className="fw-bold mb-3">🔥 Recommended Movies in {selectedCity}</h3>
 
             {safeList.length >= 4 ? (
-              <Slider {...sliderSettings}>
+              <SafeSlider {...sliderSettings}>
                 {safeList.map((movie) => (
                   <div key={movie._id} className="px-2">
                     <MovieCard movie={movie} handleImageError={handleImageError} handleBookTickets={handleBookTickets} />
                   </div>
                 ))}
-              </Slider>
+              </SafeSlider>
             ) : (
               <div className="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
                 {safeList.map((movie) => (
